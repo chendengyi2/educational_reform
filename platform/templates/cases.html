@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}案例演示 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-journal-code"></i> 案例演示</h4>
+</div>
+
+<!-- 分类标签 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="btn-group flex-wrap" id="category-filters">
+            <button class="btn btn-outline-primary active" data-category="">全部</button>
+        </div>
+    </div>
+</div>
+
+<!-- 案例卡片列表 -->
+<div class="row" id="case-list"></div>
+
+<!-- 案例详情弹窗 -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detail-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <span class="badge bg-primary me-2" id="detail-category"></span>
+                    <span class="text-muted" id="detail-algorithms"></span>
+                </div>
+                <p id="detail-description"></p>
+                <hr>
+                <div id="detail-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var iconMap = {
+    '风控': 'bi-shield-check', '营销': 'bi-megaphone', '投资': 'bi-graph-up',
+    '信用': 'bi-award', '反欺诈': 'bi-exclamation-triangle', '量化': 'bi-lightning',
+    '舆情': 'bi-chat-dots', '供应链': 'bi-link-45deg'
+};
+var colorMap = {
+    '风控': 'primary', '营销': 'success', '投资': 'info', '信用': 'warning',
+    '反欺诈': 'danger', '量化': 'dark', '舆情': 'secondary', '供应链': 'info'
+};
+
+function loadCategories() {
+    $.getJSON('/case/api/categories', function(res) {
+        var html = '<button class="btn btn-outline-primary active" data-category="">全部</button>';
+        res.data.forEach(function(c) {
+            html += '<button class="btn btn-outline-primary" data-category="' + c.key + '">' +
+                '<i class="bi ' + c.icon + '"></i> ' + c.name +
+                '</button>';
+        });
+        $('#category-filters').html(html);
+        $('#category-filters button').click(function() {
+            $(this).addClass('active').siblings().removeClass('active');
+            loadCases($(this).data('category'));
+        });
+    });
+}
+
+function loadCases(category) {
+    $.getJSON('/case/api/list', {category: category || ''}, function(res) {
+        var html = '';
+        res.data.forEach(function(c) {
+            var color = colorMap[c.category] || 'primary';
+            var icon = iconMap[c.category] || 'bi-folder';
+            html += '<div class="col-md-4 col-sm-6 mb-4">' +
+                '<div class="card h-100 case-card" data-id="' + c.id + '" style="cursor:pointer">' +
+                '<div class="card-body">' +
+                '<div class="d-flex align-items-center mb-3">' +
+                '<div class="rounded-circle bg-' + color + ' bg-opacity-25 p-3 me-3">' +
+                '<i class="bi ' + icon + ' text-' + color + '" style="font-size:1.5rem"></i></div>' +
+                '<h5 class="card-title mb-0">' + c.title + '</h5></div>' +
+                '<span class="badge bg-' + color + ' mb-2">' + c.category + '</span>' +
+                '<p class="card-text text-muted">' + c.description + '</p>' +
+                (c.algorithms ? '<small class="text-muted"><i class="bi bi-cpu"></i> ' + c.algorithms + '</small>' : '') +
+                '</div></div></div>';
+        });
+        $('#case-list').html(html || '<div class="col-12 text-center text-muted py-5">暂无案例</div>');
+    });
+}
+
+$(function() {
+    loadCategories();
+    loadCases('');
+
+    // 点击案例卡片查看详情
+    $(document).on('click', '.case-card', function() {
+        var id = $(this).data('id');
+        $.getJSON('/case/api/detail/' + id, function(res) {
+            if (res.code === 0) {
+                var d = res.data;
+                $('#detail-title').text(d.title);
+                $('#detail-category').text(d.category);
+                $('#detail-algorithms').text(d.algorithms ? '算法: ' + d.algorithms : '');
+                $('#detail-description').text(d.description);
+                $('#detail-content').html(d.content ? '<p>' + d.content + '</p>' : '暂无详细内容');
+                new bootstrap.Modal($('#detailModal')).show();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

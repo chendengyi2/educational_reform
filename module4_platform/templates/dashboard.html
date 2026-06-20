@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}数据概览大屏 - {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 20px;
+        color: #fff;
+        transition: transform 0.3s;
+    }
+    .stat-card:hover { transform: translateY(-4px); }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .stat-card .stat-label { color: rgba(255,255,255,0.6); font-size: 0.9rem; }
+    .stat-card .stat-icon { font-size: 2.5rem; opacity: 0.3; }
+    .chart-container {
+        background: #1a1a2e;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .chart-title {
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-left: 10px;
+        border-left: 3px solid #3a7bd5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 顶部统计卡片 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value" id="stat-models">--</div>
+                    <div class="stat-label">算法模型数</div>
+                </div>
+                <div class="stat-icon"><i class="bi bi-cpu"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value" id="stat-results">--</div>
+                    <div class="stat-label">分析结果数</div>
+                </div>
+                <div class="stat-icon"><i class="bi bi-graph-up"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value" id="stat-cases">--</div>
+                    <div class="stat-label">案例数量</div>
+                </div>
+                <div class="stat-icon"><i class="bi bi-journal-code"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value" id="stat-users">--</div>
+                    <div class="stat-label">注册用户数</div>
+                </div>
+                <div class="stat-icon"><i class="bi bi-people"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="chart-container">
+            <div class="chart-title">分类算法性能对比</div>
+            <div id="chart-bar" style="height: 350px;"></div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="chart-container">
+            <div class="chart-title">客户聚类分析散点图</div>
+            <div id="chart-cluster" style="height: 350px;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="chart-container">
+            <div class="chart-title">回归预测折线图</div>
+            <div id="chart-regression" style="height: 350px;"></div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="chart-container">
+            <div class="chart-title">推荐算法占比分布</div>
+            <div id="chart-pie" style="height: 350px;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="chart-container">
+            <div class="chart-title">风险评估雷达图</div>
+            <div id="chart-radar" style="height: 350px;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(function() {
+    // 加载概览数据
+    $.getJSON('/api/overview', function(res) {
+        $('#stat-models').text(res.stats.model_count);
+        $('#stat-results').text(res.stats.result_count);
+        $('#stat-cases').text(res.stats.case_count);
+        $('#stat-users').text(res.stats.user_count);
+    });
+
+    // 加载图表数据
+    $.getJSON('/api/dashboard/charts', function(data) {
+        // 分类算法对比柱状图
+        var barChart = echarts.init(document.getElementById('chart-bar'));
+        barChart.setOption({
+            tooltip: { trigger: 'axis' },
+            legend: { data: Object.keys(data.bar.values), textStyle: {color: '#ccc'} },
+            xAxis: { type: 'category', data: data.bar.categories, axisLabel: {color: '#aaa'} },
+            yAxis: { type: 'value', max: 1, axisLabel: {color: '#aaa'} },
+            series: Object.entries(data.bar.values).map(function(entry) {
+                return { name: entry[0], type: 'bar', data: entry[1] };
+            })
+        });
+
+        // 聚类散点图
+        var clusterMap = {};
+        data.cluster.forEach(function(p) {
+            if (!clusterMap[p[2]]) clusterMap[p[2]] = [];
+            clusterMap[p[2]].push([p[0], p[1]]);
+        });
+        var clusterColors = {'低风险客户': '#5470c6', '中等风险客户': '#91cc75', '高风险客户': '#ee6666'};
+        var clusterChart = echarts.init(document.getElementById('chart-cluster'));
+        clusterChart.setOption({
+            tooltip: { trigger: 'item' },
+            legend: { data: Object.keys(clusterMap), textStyle: {color: '#ccc'} },
+            xAxis: { name: '收入水平', axisLabel: {color: '#aaa'}, splitLine: {lineStyle: {color: '#333'}} },
+            yAxis: { name: '信用评分', axisLabel: {color: '#aaa'}, splitLine: {lineStyle: {color: '#333'}} },
+            series: Object.entries(clusterMap).map(function(entry) {
+                return {
+                    name: entry[0], type: 'scatter', data: entry[1],
+                    itemStyle: { color: clusterColors[entry[0]] || '#5470c6' },
+                    symbolSize: 8
+                };
+            })
+        });
+
+        // 回归预测折线图
+        var regressionChart = echarts.init(document.getElementById('chart-regression'));
+        regressionChart.setOption({
+            tooltip: { trigger: 'axis' },
+            legend: { data: ['实际值', '预测值'], textStyle: {color: '#ccc'} },
+            xAxis: { type: 'category', data: data.regression.dates, axisLabel: {color: '#aaa'} },
+            yAxis: { type: 'value', axisLabel: {color: '#aaa'} },
+            series: [
+                { name: '实际值', type: 'line', data: data.regression.actual, smooth: true, lineStyle: {width: 3} },
+                { name: '预测值', type: 'line', data: data.regression.predicted, smooth: true, lineStyle: {width: 2, type: 'dashed'} }
+            ]
+        });
+
+        // 推荐系统饼图
+        var pieChart = echarts.init(document.getElementById('chart-pie'));
+        pieChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+            legend: { orient: 'vertical', right: 10, top: 'center', textStyle: {color: '#ccc'} },
+            series: [{
+                type: 'pie', radius: ['40%', '70%'], center: ['40%', '50%'],
+                data: data.pie,
+                emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.5)' } },
+                label: { color: '#ccc' }
+            }]
+        });
+
+        // 雷达图
+        var radarChart = echarts.init(document.getElementById('chart-radar'));
+        radarChart.setOption({
+            tooltip: {},
+            legend: { data: data.radar.series.map(function(s){return s.name;}), textStyle: {color: '#ccc'} },
+            radar: {
+                indicator: data.radar.indicators,
+                axisName: { color: '#aaa' },
+                splitArea: { areaStyle: { color: ['rgba(58,123,213,0.1)', 'rgba(58,123,213,0.05)'] } }
+            },
+            series: [{
+                type: 'radar',
+                data: data.radar.series.map(function(s, i) {
+                    return {
+                        name: s.name, value: s.value,
+                        areaStyle: { opacity: 0.2 },
+                        lineStyle: { width: 2 }
+                    };
+                })
+            }]
+        });
+
+        // 响应式
+        window.addEventListener('resize', function() {
+            barChart.resize();
+            clusterChart.resize();
+            regressionChart.resize();
+            pieChart.resize();
+            radarChart.resize();
+        });
+    });
+});
+</script>
+{% endblock %}

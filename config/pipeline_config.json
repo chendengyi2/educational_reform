@@ -1,0 +1,29 @@
+{
+  "missing_value": {
+    "enabled": true,
+    "strategy": "auto",
+    "numeric_strategy": "median",
+    "categorical_strategy": "mode",
+    "drop_threshold": 0.8
+  },
+  "outlier": {
+    "enabled": true,
+    "method": "iqr",
+    "action": "clip",
+    "factor": 1.5,
+    "columns": null
+  },
+  "normalization": {
+    "enabled": true,
+    "method": "robust",
+    "columns": null
+  },
+  "feature_engineering": {
+    "enabled": true,
+    "time_features": null,
+    "lag_features": null,
+    "rolling_features": null,
+    "encode_columns": [],
+    "encode_method": "label"
+  }
+}
